@@ -29,6 +29,7 @@ the standard library).
 from __future__ import print_function, division, absolute_import
 
 import os
+import re
 import json
 import shutil
 import stat
@@ -369,10 +370,31 @@ def link(pkgs_dir, prefix, dist, linktype=LINK_HARD):
             dst_dir = dirname(dst)
             if not isdir(dst_dir):
                 os.makedirs(dst_dir)
+
             if os.path.exists(dst):
                 log.warn("file already exists: %r" % dst)
                 try:
-                    os.unlink(dst)
+                    if f == "bin/activate":
+                        dstFile = open(dst, 'r')
+
+                        check = 0
+                        for line in dstFile.readlines():
+                            match = re.search('conda \.\.activate', line)
+
+                            if match:
+                                check = 1
+                                break
+
+                        if check == 1:
+                            os.unlink(dst)
+                        else:
+                            newDst = join(prefix, "bin/initialize")
+                            os.rename(dst, newDst)
+
+                        dstFile.close()
+                    else:
+                        os.unlink(dst)
+
                 except OSError:
                     log.error('failed to unlink: %r' % dst)
             lt = (LINK_COPY if f in has_prefix_files or
