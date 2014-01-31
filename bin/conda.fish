@@ -33,7 +33,7 @@
 
 # Require version fish v2.0+ to be able to use array slices, `else if`
 # and $status for command substitutions
-if test (echo (fish -v ^&1) | sed -r 's/^.+version ([0-9]+)\..+/\1/') -lt 2
+if test (echo (fish -v ^&1) | sed 's/^.*version \([0-9]\)\..*$/\1/') -lt 2
     echo "Incompatible fish shell version; please upgrade to v2.0 or higher."
     exit 1
 end
