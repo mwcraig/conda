@@ -39,6 +39,33 @@ if [ (echo (fish -v ^&1) | sed 's/^.*version \([0-9]\)\..*$/\1/') -lt 2 ]
 end
 
 
+# Inject environment name into the beginning of the prompt
+function __update_prompt
+	if [ (conda ..changeps1) ]
+		switch $argv[1]
+			case activate
+				functions -e __fish_prompt_orig
+				functions -c fish_prompt __fish_prompt_orig
+				functions -e fish_prompt
+				function fish_prompt
+					echo -n \($CONDA_DEFAULT_ENV\)
+					__fish_prompt_orig
+				end
+			case deactivate
+				functions -e fish_prompt
+				functions -c __fish_prompt_orig fish_prompt
+				functions -e __fish_prompt_orig
+		end
+	end
+end
+
+
+# Convert colon-separated path to a legit fish list
+function __set_path
+	set -gx PATH (echo $argv[1] | tr : \n)
+end
+
+
 # Calls activate / deactivate functions if the first argument is activate or
 # deactivate; otherwise, calls conda-<cmd> and passes the arguments through
 function conda
@@ -51,10 +78,8 @@ function conda
             set -e ARGS
         end
         switch $argv[1]
-            case activate
-                activate $ARGS
-            case deactivate
-                deactivate $ARGS
+            case activate deactivate
+            	eval $argv
             case '*'
                 command conda $argv
         end
@@ -73,34 +98,26 @@ function activate --description "Activate a conda environment."
     if set -q CONDA_DEFAULT_ENV
         conda ..checkenv $argv[1]
         if [ $status = 0 ]
-            set -l NEW_PATH (conda "..deactivate")
-            # convert colon-separated path to a fish list
-            set -gx PATH (echo $NEW_PATH | sed 's/:/\n/g')
-            if [ (conda ..changeps1) ]
-                set -gx PS1 $CONDA_OLD_PS1
-                set -e CONDA_OLD_PS1
-            end
+            __set_path (conda ..deactivate)
+            set -e CONDA_DEFAULT_ENV
+            __update_prompt deactivate
         else
             return 1
         end
     end
 
     # try to activate the environment
-    set -l NEW_PATH (conda ..activate "$argv[1]")
+    set -l NEW_PATH (conda ..activate $argv[1])
     if [ $status = 0 ]
-        # convert colon-separated path to a fish list
-        set -gx PATH (echo $NEW_PATH | sed 's/:/\n/g')
-        if [ (echo "$argv[1]" | grep "/") ]
+    	__set_path $NEW_PATH
+        if [ (echo $argv[1] | grep '/') ]
             pushd (dirname $argv[1])
             set -gx CONDA_DEFAULT_ENV (pwd)/(basename $argv[1])
             popd
         else
             set -gx CONDA_DEFAULT_ENV $argv[1]
         end
-        if [ (conda ..changeps1) ]
-            set -gx CONDA_OLD_PS1 $PS1
-            set -gx PS1 "($CONDA_DEFAULT_ENV)$PS1"
-        end
+        __update_prompt activate
     else
         return $status
     end
@@ -111,13 +128,9 @@ end
 function deactivate --description "Deactivate the current conda environment."
     set -l NEW_PATH (conda ..deactivate $argv[1])
     if [ $status = 0 ]
-        # convert colon-separated path to a fish list
-        set -gx PATH (echo $NEW_PATH | sed 's/:/\n/g')
+    	__set_path $NEW_PATH
         set -e CONDA_DEFAULT_ENV
-        if [ (conda ..changeps1) ]
-            set -gx PS1 $CONDA_OLD_PS1
-            set -e CONDA_OLD_PS1
-        end
+        __update_prompt deactivate
     else
         return $status
     end
