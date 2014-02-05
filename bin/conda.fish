@@ -41,7 +41,7 @@ end
 
 # Inject environment name into the beginning of the prompt
 function __update_prompt
-	if [ (conda ..changeps1) ]
+	if [ (conda ..changeps1) -eq 1 ]
 		switch $argv[1]
 			case activate
 				functions -e __fish_prompt_orig
