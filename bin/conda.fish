@@ -97,33 +97,33 @@ end
 
 # Inject environment name into fish_right_prompt / fish_prompt
 function __conda_update_prompt
-	if [ (conda '..changeps1') -eq 1 ]
-		switch $argv[1]
-			case activate
+    if [ (conda '..changeps1') -eq 1 ]
+        switch $argv[1]
+            case activate
                 __conda_restore_prompt
                 __conda_backup_prompt
-				function fish_prompt
+                function fish_prompt
                     if set -q CONDA_LEFT_PROMPT
                         __conda_echo_env
                     end
                     __fish_prompt_orig
-				end
+                end
                 function fish_right_prompt
                     if not set -q CONDA_LEFT_PROMPT
                         __conda_echo_env
                     end
                     __fish_right_prompt_orig
                 end
-			case deactivate
+            case deactivate
                 __conda_restore_prompt
-		end
-	end
+        end
+    end
 end
 
 
 # Convert colon-separated path to a legit fish list
 function __conda_set_path
-	set -gx PATH (echo $argv[1] | tr : \n)
+    set -gx PATH (echo $argv[1] | tr : \n)
 end
 
 
@@ -140,7 +140,7 @@ function conda
         end
         switch $argv[1]
             case activate deactivate
-            	eval $argv
+                eval $argv
             case '*'
                 command conda $argv
         end
@@ -170,7 +170,7 @@ function activate --description 'Activate a conda environment.'
     # try to activate the environment
     set -l NEW_PATH (conda '..activate' $argv[1])
     if [ $status = 0 ]
-    	__conda_set_path $NEW_PATH
+        __conda_set_path $NEW_PATH
         if [ (echo $argv[1] | grep '/') ]
             pushd (dirname $argv[1])
             set -gx CONDA_DEFAULT_ENV (pwd)/(basename $argv[1])
@@ -190,7 +190,7 @@ function deactivate --description 'Deactivate the current conda environment.'
     if set -q CONDA_DEFAULT_ENV  # don't deactivate the root environment
         set -l NEW_PATH (conda '..deactivate' $argv[1])
         if [ $status = 0 ]
-        	__conda_set_path $NEW_PATH
+            __conda_set_path $NEW_PATH
             set -e CONDA_DEFAULT_ENV
             __conda_update_prompt deactivate
         else
