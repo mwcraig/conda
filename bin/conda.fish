@@ -41,7 +41,7 @@ if [ (echo (fish -v ^&1) | sed 's/^.*version \([0-9]\)\..*$/\1/') -lt 2 ]
 end
 
 
-function __delete_function
+function __conda_delete_function
     functions -e $argv
     if functions -q $argv
         functions -e $argv
@@ -49,60 +49,80 @@ function __delete_function
 end
 
 
-function __restore_prompt
+function __conda_restore_prompt
     if functions -q __fish_prompt_orig
-        __delete_function fish_prompt
+        __conda_delete_function fish_prompt
         functions -c __fish_prompt_orig fish_prompt
         functions -e __fish_prompt_orig
     end
 
     if functions -q __fish_right_prompt_orig
-        __delete_function fish_right_prompt
+        __conda_delete_function fish_right_prompt
         functions -c __fish_right_prompt_orig fish_right_prompt
         functions -e __fish_right_prompt_orig
     end
 end
 
 
-# Inject environment name into fish_right_prompt / fish_prompt
-function __update_prompt
-	if [ (conda '..changeps1') -eq 1 ]
-        if set -q CONDA_LEFT_PROMPT
-            set -g CONDA_PROMPT_FUNC 'fish_prompt'
-        else
-            set -g CONDA_PROMPT_FUNC 'fish_right_prompt'
+function __conda_backup_prompt
+    functions -e __fish_prompt_orig
+    if functions -q fish_prompt
+        functions -c fish_prompt __fish_prompt_orig
+        functions -e fish_prompt
+    else
+        function __fish_prompt_orig
         end
-        set prompt $CONDA_PROMPT_FUNC
-        set prompt_orig __"$CONDA_PROMPT_FUNC"_orig
+    end
+
+    functions -e __fish_right_prompt_orig
+    if functions -q fish_right_prompt
+        functions -c fish_right_prompt __fish_right_prompt_orig
+        functions -e fish_right_prompt
+    else
+        function __fish_right_prompt_orig
+        end
+    end
+end
+
+
+function __conda_echo_env
+    set_color normal
+    echo -n '('
+    set_color -o green
+    echo -n $CONDA_DEFAULT_ENV
+    set_color normal
+    echo -n ') '
+end
+
+
+# Inject environment name into fish_right_prompt / fish_prompt
+function __conda_update_prompt
+	if [ (conda '..changeps1') -eq 1 ]
 		switch $argv[1]
 			case activate
-                __restore_prompt
-				functions -e $prompt_orig
-                if functions -q $prompt
-				    functions -c $prompt $prompt_orig
-				    functions -e $prompt
-                else
-                    function $prompt_orig
+                __conda_restore_prompt
+                __conda_backup_prompt
+				function fish_prompt
+                    if set -q CONDA_LEFT_PROMPT
+                        __conda_echo_env
                     end
-                end
-				function $prompt
-                    set -l prompt_orig __"$CONDA_PROMPT_FUNC"_orig
-                    set -l col_green (set_color -o green)
-                    set -l col_normal (set_color normal)
-					echo -n "$col_normal($col_green$CONDA_DEFAULT_ENV$col_normal) "
-                    if functions -q $prompt_orig
-					   eval "$prompt_orig"
-                    end
+                    __fish_prompt_orig
 				end
+                function fish_right_prompt
+                    if not set -q CONDA_LEFT_PROMPT
+                        __conda_echo_env
+                    end
+                    __fish_right_prompt_orig
+                end
 			case deactivate
-                __restore_prompt
+                __conda_restore_prompt
 		end
 	end
 end
 
 
 # Convert colon-separated path to a legit fish list
-function __set_path
+function __conda_set_path
 	set -gx PATH (echo $argv[1] | tr : \n)
 end
 
@@ -139,9 +159,9 @@ function activate --description 'Activate a conda environment.'
     if set -q CONDA_DEFAULT_ENV
         conda '..checkenv' $argv[1]
         if [ $status = 0 ]
-            __set_path (conda '..deactivate')
+            __conda_set_path (conda '..deactivate')
             set -e CONDA_DEFAULT_ENV
-            __update_prompt deactivate
+            __conda_update_prompt deactivate
         else
             return 1
         end
@@ -150,7 +170,7 @@ function activate --description 'Activate a conda environment.'
     # try to activate the environment
     set -l NEW_PATH (conda '..activate' $argv[1])
     if [ $status = 0 ]
-    	__set_path $NEW_PATH
+    	__conda_set_path $NEW_PATH
         if [ (echo $argv[1] | grep '/') ]
             pushd (dirname $argv[1])
             set -gx CONDA_DEFAULT_ENV (pwd)/(basename $argv[1])
@@ -158,7 +178,7 @@ function activate --description 'Activate a conda environment.'
         else
             set -gx CONDA_DEFAULT_ENV $argv[1]
         end
-        __update_prompt activate
+        __conda_update_prompt activate
     else
         return $status
     end
@@ -170,9 +190,9 @@ function deactivate --description 'Deactivate the current conda environment.'
     if set -q CONDA_DEFAULT_ENV  # don't deactivate the root environment
         set -l NEW_PATH (conda '..deactivate' $argv[1])
         if [ $status = 0 ]
-        	__set_path $NEW_PATH
+        	__conda_set_path $NEW_PATH
             set -e CONDA_DEFAULT_ENV
-            __update_prompt deactivate
+            __conda_update_prompt deactivate
         else
             return $status
         end
