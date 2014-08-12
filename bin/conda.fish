@@ -31,6 +31,9 @@
 #
 #         set -gx CONDA_LEFT_PROMPT 1
 #
+#     To go back to making the env name appear on the right, erase that variable:
+#
+#         set -e CONDA_LEFT_PROMPT
 
 
 # Require version fish v2.0+ to be able to use array slices, `else if`
